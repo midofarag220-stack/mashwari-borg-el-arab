@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "مشواري برج العرب",
+  "short_name": "مشواري",
+  "description": "طلب مشاوير بالموتوسيكل في برج العرب",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#0d1424",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
