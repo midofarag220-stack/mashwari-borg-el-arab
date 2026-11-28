@@ -35,7 +35,7 @@ create or replace function public.driver_commission_balance()
 returns numeric
 language sql stable security definer
 set search_path = ''
-as $
+as $$
   select coalesce(sum(
     case when entry_type='charge' then amount
          when entry_type='payment' then -amount
@@ -43,7 +43,7 @@ as $
   ),0)::numeric
   from public.trip_commission_ledger
   where account_user_id=auth.uid() and side='driver';
-$;
+$$;
 revoke all on function public.driver_commission_balance() from public, anon;
 grant execute on function public.driver_commission_balance() to authenticated;
 
@@ -81,7 +81,7 @@ returns void
 language plpgsql security definer
 
 set search_path = ''
-as $
+as $$
 declare v_user uuid := auth.uid();
 begin
   if v_user is null then raise exception 'Authentication required'; end if;
@@ -89,7 +89,7 @@ begin
   where id=trip_uuid and driver_id=v_user and status='accepted';
   if not found then raise exception 'Trip cannot be started'; end if;
 end;
-$;
+$$;
 revoke all on function public.start_trip(uuid) from public, anon;
 grant execute on function public.start_trip(uuid) to authenticated;
 
