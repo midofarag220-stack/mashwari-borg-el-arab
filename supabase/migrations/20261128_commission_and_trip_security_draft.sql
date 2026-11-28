@@ -9,13 +9,15 @@ create table if not exists public.trip_commission_ledger (
   trip_id uuid not null references public.trips(id) on delete restrict,
   account_user_id uuid not null references auth.users(id) on delete restrict,
   side text not null check (side in ('passenger','driver')),
-  entry_type text not null check (entry_type in ('charge','payment','adjustment')),
+  entry_type text not null check (entry_type in ('charge','payment')),
   amount numeric(10,2) not null check (amount > 0),
   created_at timestamptz not null default now(),
   created_by uuid references auth.users(id),
   note text,
-  unique (trip_id, side, entry_type)
+  -- يسمح بتكرار السداد؛ تكرار العمولة يمنع بواسطة partial unique index أدناه.
 );
+create unique index if not exists commission_charge_once
+  on public.trip_commission_ledger(trip_id, side) where entry_type='charge';
 
 alter table public.trip_commission_ledger enable row level security;
 
@@ -36,7 +38,7 @@ set search_path = ''
 as $$
   select coalesce(sum(
     case when entry_type='charge' then amount
-         when entry_type in ('payment','adjustment') then -amount
+         when entry_type='payment' then -amount
          else 0 end
   ),0)::numeric
   from public.trip_commission_ledger
@@ -72,6 +74,24 @@ $$;
 revoke all on function public.accept_trip(uuid) from public, anon;
 grant execute on function public.accept_trip(uuid) to authenticated;
 
+
+-- بدء الرحلة: لا يسمح إلا للسائق المعيّن وبحالة accepted.
+create or replace function public.start_trip(trip_uuid uuid)
+returns void
+language plpgsql security definer
+set search_path = ''
+as $
+declare v_user uuid := auth.uid();
+begin
+  if v_user is null then raise exception 'Authentication required'; end if;
+  update public.trips set status='started'
+  where id=trip_uuid and driver_id=v_user and status='accepted';
+  if not found then raise exception 'Trip cannot be started'; end if;
+end;
+$;
+revoke all on function public.start_trip(uuid) from public, anon;
+grant execute on function public.start_trip(uuid) to authenticated;
+
 -- إكمال الرحلة وتسجيل العمولة بشكل ذري، مرة واحدة لكل طرف.
 create or replace function public.complete_trip(trip_uuid uuid)
 returns void
@@ -93,7 +113,7 @@ begin
   insert into public.trip_commission_ledger(trip_id,account_user_id,side,entry_type,amount,created_by,note)
   values (trip_uuid,v_trip.passenger_id,'passenger','charge',1,v_user,'Passenger trip commission'),
          (trip_uuid,v_user,'driver','charge',1,v_user,'Driver trip commission')
-  on conflict (trip_id,side,entry_type) do nothing;
+  on conflict (trip_id,side) where entry_type='charge' do nothing;
 end;
 $$;
 revoke all on function public.complete_trip(uuid) from public, anon;
