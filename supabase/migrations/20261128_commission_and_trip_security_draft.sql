@@ -13,9 +13,9 @@ create table if not exists public.trip_commission_ledger (
   amount numeric(10,2) not null check (amount > 0),
   created_at timestamptz not null default now(),
   created_by uuid references auth.users(id),
-  note text,
-  -- يسمح بتكرار السداد؛ تكرار العمولة يمنع بواسطة partial unique index أدناه.
+  note text
 );
+-- يسمح بتكرار السداد؛ تكرار العمولة يمنع بواسطة partial unique index أدناه.
 create unique index if not exists commission_charge_once
   on public.trip_commission_ledger(trip_id, side) where entry_type='charge';
 
