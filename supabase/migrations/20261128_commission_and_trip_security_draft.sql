@@ -31,21 +31,21 @@ for select to authenticated
 using (account_user_id = auth.uid());
 
 -- رصيد السائق: مجموع المديونيات (charge) ناقص السداد/التسوية.
-create or replace function public.driver_commission_balance(driver_uuid uuid)
+create or replace function public.driver_commission_balance()
 returns numeric
 language sql stable security definer
 set search_path = ''
-as $$
+as $
   select coalesce(sum(
     case when entry_type='charge' then amount
          when entry_type='payment' then -amount
          else 0 end
   ),0)::numeric
   from public.trip_commission_ledger
-  where account_user_id=driver_uuid and side='driver';
-$$;
-revoke all on function public.driver_commission_balance(uuid) from public, anon;
-grant execute on function public.driver_commission_balance(uuid) to authenticated;
+  where account_user_id=auth.uid() and side='driver';
+$;
+revoke all on function public.driver_commission_balance() from public, anon;
+grant execute on function public.driver_commission_balance() to authenticated;
 
 -- قبول طلب: سائق معتمد، لا تتجاوز مديونيته 10 جنيه، والطلب متاح.
 create or replace function public.accept_trip(trip_uuid uuid)
@@ -62,7 +62,7 @@ begin
   if not found or v_profile.role <> 'driver' or v_profile.approved is not true then
     raise exception 'Driver is not approved';
   end if;
-  if public.driver_commission_balance(v_user) >= 10 then
+  if public.driver_commission_balance() >= 10 then
     raise exception 'Commission debt limit reached; settle your balance';
   end if;
   update public.trips
