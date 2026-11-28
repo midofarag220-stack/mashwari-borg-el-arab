@@ -79,6 +79,7 @@ grant execute on function public.accept_trip(uuid) to authenticated;
 create or replace function public.start_trip(trip_uuid uuid)
 returns void
 language plpgsql security definer
+
 set search_path = ''
 as $
 declare v_user uuid := auth.uid();
